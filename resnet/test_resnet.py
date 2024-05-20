@@ -22,7 +22,7 @@ np.random.seed(seed)
 random.seed(seed)
 
 
-#####构造的训练集####
+
 def one_hot(x, char_to_int, alphabet):
     # integer encode input data
     integer_encoded = [char_to_int[char] for char in x]
@@ -37,7 +37,7 @@ def one_hot(x, char_to_int, alphabet):
     return getmatrix
 
 
-df = pd.read_csv(r'D:\生物信息\O-GlcNac修饰位点预测\pythonProject\v1\data\real.csv')
+df = pd.read_csv(r'..\real.csv')
 # define input string
 # define universe of possible input values
 alphabet = 'ACDEFGHIKLMNPQRSTVWY*'
@@ -74,7 +74,7 @@ print(1)
 
 
 
-######网络结构##########
+
 def conv3x3(in_channels, out_channels, stride=1):
     return nn.Conv2d(in_channels, out_channels, kernel_size=3,
                      stride=stride, padding=1, bias=False)
@@ -183,22 +183,21 @@ class MyDataset(Dataset):
 
 
 ########k折划分############
-def get_k_fold_data(k, i, X, y):  ###此过程主要是步骤（1）
-    # 返回第i折交叉验证时所需要的训练和验证数据，分开放，X_train为训练数据，X_valid为验证数据
+def get_k_fold_data(k, i, X, y):  
     assert k > 1
-    fold_size = X.shape[0] // k  # 每份的个数:数据总条数/折数（组数）
+    fold_size = X.shape[0] 
 
     X_train, y_train = None, None
     for j in range(k):
-        idx = slice(j * fold_size, (j + 1) * fold_size)  # slice(start,end,step)切片函数
-        ##idx 为每组 valid
+        idx = slice(j * fold_size, (j + 1) * fold_size) 
+        
         X_part, y_part = X[idx, :], y[idx]
-        if j == i:  ###第i折作valid
+        if j == i:  
             X_valid, y_valid = X_part, y_part
         elif X_train is None:
             X_train, y_train = X_part, y_part
         else:
-            X_train = torch.cat((X_train, X_part), dim=0)  # dim=0增加行数，竖着连接
+            X_train = torch.cat((X_train, X_part), dim=0)  
             y_train = torch.cat((y_train, y_part), dim=0)
     # print(X_train.size(),X_valid.size())
     return X_train, y_train, X_valid, y_valid
@@ -210,9 +209,9 @@ def k_fold(k, X_train, y_train, num_epochs=10, learning_rate=0.0001, weight_deca
 
     best_valid_acc = 0
     for i in range(k):
-        data = get_k_fold_data(k, i, X_train, y_train)  # 获取k折交叉验证的训练和验证数据
-        net = CNN().to(device)  ### 实例化模型
-        ### 每份数据进行训练,体现步骤三####
+        data = get_k_fold_data(k, i, X_train, y_train)  
+        net = CNN().to(device)  
+       
         train_ls, valid_ls = train(net, *data, num_epochs, learning_rate, weight_decay, batch_size)
         if valid_ls[-1][1] > best_valid_acc:
             torch.save(net.state_dict(), "best_model_real.pth")
@@ -237,8 +236,7 @@ def train(net, train_features, train_labels, test_features, test_labels, num_epo
     train_ls, test_ls = [], []  ##存储train_loss,test_loss
     dataset = MyDataset(train_features, train_labels)
     train_iter = DataLoader(dataset, batch_size, shuffle=True)
-    ### 将数据封装成 Dataloder 对应步骤（2）
-
+    
     # Adam优化算法 or SGD
     # optimizer = torch.optim.Adam(params=net.parameters(), lr=learning_rate, weight_decay=weight_decay)
     optimizer = torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.9)
@@ -350,8 +348,8 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # test评估模型
 model = ResNet(ResidualBlock, [2, 2, 2]).to(device)
-# model_path = r'D:\生物信息\O-GlcNac修饰位点预测\pythonProject\0.92\0.92\best_model_real0.92.pth'
-model_path = r'D:\生物信息\O-GlcNac修饰位点预测\pythonProject\resnet\best_model_resnet.pth'
+# model_path = r'best_model_real0.92.pth'
+model_path = r'best_model_resnet.pth'
 model_dict=model.load_state_dict(torch.load(model_path))
 
 model.eval()
@@ -412,104 +410,6 @@ with torch.no_grad():
     accuracy = corrects * 100.0 / len(labels)  #### 5 是 batch_size
     print('test accuracy:{0:0.2f}'.format(accuracy))
 
-    ###roc###
-    fpr = {}
-    tpr = {}
-    roc_auc = {}
+   
 
-    for i in range(num_classes):
-        fpr[i], tpr[i], _ = roc_curve(out_test_labels[:, i], scores[:, i])
-        roc_auc[i] = auc(fpr[i], tpr[i])
-
-    # Compute micro-average ROC curve and ROC area
-    fpr["micro"], tpr["micro"], _ = roc_curve(out_test_labels.cpu().numpy().ravel(), scores.ravel())
-    roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
-
-    # Compute macro-average ROC curve and ROC area
-    # First aggregate all false positive rates
-    all_fpr = np.unique(np.concatenate([fpr[i] for i in range(num_classes)]))
-    # Then interpolate all ROC curves at this points
-    mean_tpr = np.zeros_like(all_fpr)
-    for i in range(num_classes):
-        mean_tpr += np.interp(all_fpr, fpr[i], tpr[i])
-    # Finally average it and compute AUC
-    mean_tpr /= num_classes
-    fpr["macro"] = all_fpr
-    tpr["macro"] = mean_tpr
-    roc_auc["macro"] = auc(fpr["macro"], tpr["macro"])
-
-    ###pr###
-    precision_dict = {}
-    recall_dict = {}
-    average_precision = {}
-    for i in range(num_classes):
-        precision_dict[i], recall_dict[i], _ = precision_recall_curve(out_test_labels[:, i], scores[:, i])
-        average_precision[i] = average_precision_score(out_test_labels[:, i], scores[:, i])
-        print(precision_dict[i].shape, recall_dict[i].shape, average_precision[i])
-
-    # micro
-    precision_dict["micro"], recall_dict["micro"], _ = precision_recall_curve(out_test_labels.cpu().numpy().ravel(), scores.ravel())
-    average_precision["micro"] = average_precision_score(out_test_labels.cpu().numpy(), scores, average="micro")
-    print('Average precision score, micro-averaged over all classes: {0:0.2f}'.format(average_precision["micro"]))
-
-    ###classfication_report###
-    c_r = classification_report(y_ture, y_pred,labels=[0,1])
-    print(c_r)
-
-    ###F1-score###
-    print("F1-Score:{:.4f}".format(f1_score(y_ture,y_pred)))
-
-###yinoyang
-# fpr_yinoyang, tpr_yinoyang, thresholds = roc_curve(y_ture_np, y_pred_p_np, pos_label=1)
-# auc_yinoyang = auc(fpr_yinoyang, tpr_yinoyang)
-#
-#
-# precision_yinoyang, recall_yinoyang, thresholds = precision_recall_curve(y_ture_np, y_pred_p_np)
-# ap_yinoyang = average_precision_score(y_ture_np, y_pred_p_np, average='micro', pos_label=1, sample_weight=None)
-
-
-plt.style.use('ggplot')
-    # 绘制所有类别平均的pr曲线
-plt.figure(figsize=(8, 8))
-plt.plot(recall_dict['micro'], precision_dict['micro'],label = 'deepogt AP={0:0.2f}'.format(average_precision["micro"]))
-# plt.plot(recall_yinoyang, precision_yinoyang, label = 'YinOYang AP={0:0.2f}'.format(ap_yinoyang))
-plt.xlabel('Recall')
-plt.ylabel('Precision')
-plt.ylim([0.0, 1.05])
-plt.xlim([0.0, 1.0])
-plt.grid(True)
-# plt.title('Average precision score, micro-averaged over all classes: AP={0:0.2f}'.format(average_precision["micro"]))
-plt.legend(loc="lower right")
-plt.savefig("pr_cnn_attention.jpg")
-
-
-
-
-#roc
-plt.figure(figsize=(8, 8))
-plt.plot(fpr["micro"], tpr["micro"],
-         label='micro-average ROC curve (area = {0:0.2f})'.format(roc_auc["micro"]),
-         color='deeppink', linestyle=':', linewidth=4)
-
-plt.plot(fpr["macro"], tpr["macro"],
-         label='macro-average ROC curve (area = {0:0.2f})'.format(roc_auc["macro"]),
-         color='navy', linestyle=':', linewidth=4)
-
-for i in range(num_classes):
-    plt.plot(fpr[i], tpr[i], lw=2,
-             label='ROC curve of class {0} (area = {1:0.2f})'.format(i, roc_auc[i]))
-
-# plt.plot(fpr_yinoyang, tpr_yinoyang, lw=2, label='ROC curve of YinOYang (area = {0:0.2f})'.format(auc_yinoyang))
-
-plt.plot([0, 1], [0, 1], 'k--')
-plt.xlim([0.0, 1.0])
-plt.ylim([0.0, 1.05])
-plt.grid(True)
-
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title('Two-class ROC')
-plt.legend(loc="lower right")
-plt.savefig('ROC-cnn-attention.jpg', bbox_inches='tight')
-plt.show()
 
