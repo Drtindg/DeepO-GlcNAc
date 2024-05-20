@@ -36,7 +36,7 @@ def one_hot(x, char_to_int, alphabet):
     return getmatrix
 
 
-df = pd.read_csv(r'D:\生物信息\O-GlcNac修饰位点预测\pythonProject\v1\data\real.csv')
+df = pd.read_csv(r'real.csv')
 # define input string
 # define universe of possible input values
 alphabet = 'ACDEFGHIKLMNPQRSTVWY*'
@@ -75,25 +75,22 @@ print(1)
 class LSTM(nn.Module):
     def __init__(self):
         super().__init__()
-        # batch*1*21*21（每次会送入batch个样本，输入通道数1（黑白图像），图像分辨率是28x28）
-        # 下面的卷积层Conv2d的第一个参数指输入通道数，第二个参数指输出通道数，第三个参数指卷积核的大小
-        # self.conv1 = nn.Conv2d(1, 16, 5,stride=1,padding=2) # 输入通道数1，输出通道数10，核的大小5
-        # self.conv2 = nn.Conv2d(10, 20, 3,stride=1,padding=2) # 输入通道数10，输出通道数20，核的大小3
-
+        # self.conv1 = nn.Conv2d(1, 16, 5,stride=1,padding=2) 
+        # self.conv2 = nn.Conv2d(10, 20, 3,stride=1,padding=2) 
         # LSTM
         # self.lstm = nn.LSTM(input_size=1*21*21, hidden_size=512, num_layers=2,batch_first = True, bidirectional=True)  # 输入 (1, batchsize, 20*12*12)
         self.lstm = nn.LSTM(input_size=1 * 21 * 21, hidden_size=512, num_layers=2)
-        # 下面的全连接层Linear的第一个参数指输入通道数，第二个参数指输出通道数
-        # self.fc1 = nn.Linear(512, 288) # 输入通道数是2000，输出通道数是500
-        #双向
+       
+        # self.fc1 = nn.Linear(512, 288)
+       
         self.fc1 = nn.Linear(512, 288)
-        self.fc2 = nn.Linear(288, 2) # 输入通道数是500，输出通道数是10，即10分类
+        self.fc2 = nn.Linear(288, 2) 
     def forward(self,x):
-        in_size = x.size(0) # 在本例中in_size=512，也就是BATCH_SIZE的值。输入的x可以看成是512*1*28*28的张量。
-        # out = self.conv1(x) # batch*1*21*21 -> batch*10*21*21（21x21的图像经过一次核为5x5的卷积，输出变为21x21）
-        # out = F.relu(out) # batch*10*21*21（激活函数ReLU不改变形状））
-        # out = F.max_pool2d(out, 2, 2) # batch*10*21*21 -> batch*10*10*10（2*2的池化层会减半）
-        # out = self.conv2(out) # batch*10*10*10 -> batch*20*12*12（再卷积一次，核的大小是3）
+        in_size = x.size(0) 
+        # out = self.conv1(x)
+        # out = F.relu(out) 
+        # out = F.max_pool2d(out, 2, 2) 
+        # out = self.conv2(out) 
         # out = F.relu(out) # batch*20*12*12
         out = x.view(1, in_size, -1) # batch*20*12*12 -> 1*batch*2880（out的第二维是-1，说明是自动推算，本例中第二维是20*10*10）
         out, (_, _) = self.lstm(out)
@@ -122,7 +119,7 @@ class LSTM(nn.Module):
 
 
 
-##########定义dataset##########
+
 class MyDataset(Dataset):
 
     def __init__(self, features, labels):
@@ -141,14 +138,14 @@ class MyDataset(Dataset):
 
 
 ########k折划分############
-def get_k_fold_data(k, i, X, y):  ###此过程主要是步骤（1）
-    # 返回第i折交叉验证时所需要的训练和验证数据，分开放，X_train为训练数据，X_valid为验证数据
+def get_k_fold_data(k, i, X, y):  
+   
     assert k > 1
-    fold_size = X.shape[0] // k  # 每份的个数:数据总条数/折数（组数）
+    fold_size = X.shape[0] // k  
 
     X_train, y_train = None, None
     for j in range(k):
-        idx = slice(j * fold_size, (j + 1) * fold_size)  # slice(start,end,step)切片函数
+        idx = slice(j * fold_size, (j + 1) * fold_size)  
         ##idx 为每组 valid
         X_part, y_part = X[idx, :], y[idx]
         if j == i:  ###第i折作valid
@@ -156,7 +153,7 @@ def get_k_fold_data(k, i, X, y):  ###此过程主要是步骤（1）
         elif X_train is None:
             X_train, y_train = X_part, y_part
         else:
-            X_train = torch.cat((X_train, X_part), dim=0)  # dim=0增加行数，竖着连接
+            X_train = torch.cat((X_train, X_part), dim=0)
             y_train = torch.cat((y_train, y_part), dim=0)
     # print(X_train.size(),X_valid.size())
     return X_train, y_train, X_valid, y_valid
@@ -168,12 +165,12 @@ def k_fold(k, X_train, y_train, num_epochs=10, learning_rate=0.0001, weight_deca
 
     best_valid_acc = 0
     for i in range(k):
-        data = get_k_fold_data(k, i, X_train, y_train)  # 获取k折交叉验证的训练和验证数据
-        # net = CNN().to(device)  ### 实例化模型
-        net = LSTM().to(device)  ### 实例化模型
-        # net = CNN_SEAttention().to(device)  ### 实例化模型
-        # net = CNN_SEAttention_LSTM().to(device)  ### 实例化模型
-        ### 每份数据进行训练,体现步骤三####
+        data = get_k_fold_data(k, i, X_train, y_train)  
+        # net = CNN().to(device)  
+        net = LSTM().to(device)  
+        # net = CNN_SEAttention().to(device)  
+        # net = CNN_SEAttention_LSTM().to(device) 
+     
         train_ls, valid_ls = train(net, *data, num_epochs, learning_rate, weight_decay, batch_size)
         if valid_ls[-1][1] > best_valid_acc:
             torch.save(net.state_dict(), "best_model_LSTM 227.pth")
@@ -187,7 +184,7 @@ def k_fold(k, X_train, y_train, num_epochs=10, learning_rate=0.0001, weight_deca
         train_acc_sum += train_ls[-1][1]
         valid_acc_sum += valid_ls[-1][1]
     print('#' * 10, '最终k折交叉验证结果', '#' * 10)
-    ####体现步骤四#####
+
     print('train_loss_sum:%.4f' % (train_loss_sum / k), 'train_acc_sum:%.4f\n' % (train_acc_sum / k), \
           'valid_loss_sum:%.4f' % (valid_loss_sum / k), 'valid_acc_sum:%.4f' % (valid_acc_sum / k))
 
@@ -306,169 +303,4 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # loss_func = nn.BCEWithLogitsLoss()
 # k_fold(10, out_train_features, out_train_labels)  ### k=10,十折交叉验证
 
-# roc曲线绘制
-# model = CNN().to(device)
-model = LSTM().to(device)  ### 实例化模型
-# model = CNN_SEAttention().to(device)  ### 实例化模型
-# model = CNN_SEAttention_LSTM().to(device)  ### 实例化模型
-model_path = r'best_model_LSTM.pth'
-model_dict = model.load_state_dict(torch.load(model_path))
 
-model.eval()
-test_dataset = MyDataset(out_test_features, out_test_labels)
-test_loader = DataLoader(test_dataset, 1, shuffle=False)
-total_loss = 0.
-correct = 0.
-num_classes = 2
-with torch.no_grad():
-    features, labels = out_test_features.to(device), out_test_labels.to(device)
-    output = model(features)
-    scores = torch.softmax(output, dim=1).cpu().numpy()
-    scores_cla = scores.argmax(1)
-    y_pred = scores_cla.tolist()
-    # print(y_pred)
-    # print(type(y_pred))
-    y_ture = torch.max(labels, 1)[1].cpu().numpy()
-    y_ture = y_ture.tolist()
-    # print(y_ture)
-    # print(type(y_ture))
-    # print(len(y_ture))
-    # print(len(y_pred))
-
-
-    ###confusion_matrix####
-    cm1 = confusion_matrix(y_ture,y_pred,labels=[0, 1])
-    # print(cm1)
-    # sns.heatmap(cm1, annot=True)
-    # plt.show()
-    class_names = np.array(["0", "1"])
-    plot_confusion_matrix(y_ture, y_pred, classes=class_names, normalize=False)
-    # FP = cm1.sum(axis=0) - np.diag(cm1)
-    # FN = cm1.sum(axis=1) - np.diag(cm1)
-    # TP = np.diag(cm1)
-    # TN = cm1.sum() - (FP + FN + TP)
-    TP = cm1[1][1]
-    FP = cm1[0][1]
-    FN = cm1[1][0]
-    TN = cm1[0][0]
-    # print('FP:{0:0.2f}'.format(FP))
-    # print('FN:{0:0.2f}'.format(FN))
-    # print('TP:{0:0.2f}'.format(TP))
-    # print('TN:{0:0.2f}'.format(TN))
-    Precision = round(TP / (TP + FP), 3) if TP + FP != 0 else 0.
-    Recall = round(TP / (TP + FN), 3) if TP + FN != 0 else 0.  # 每一类准确度
-    Specificity = round(TN / (TN + FP), 3) if TN + FP != 0 else 0.
-    Acc = round((TP+TN)/(TP+FN+TN+FP), 3) if TP+FN+TN+FP != 0 else 0.
-    print('Precixion:{0:0.2f}'.format(Precision))
-    print('Recall:{0:0.2f}'.format(Recall))
-    print('Specificity:{0:0.2f}'.format(Specificity))
-    MCC = calculate_MCC(TP, FP, FN, TN)
-    print('MCC:{0:0.2f}'.format(MCC))
-    print('Acc:{0:0.2f}'.format(Acc))
-
-    #acc
-    result = torch.max(output, 1)[1]
-    corrects = (result.data == torch.max(labels, 1)[1].data).sum().item()
-    accuracy = corrects * 100.0 / len(labels)  #### 5 是 batch_size
-    print('test accuracy:{0:0.2f}'.format(accuracy))
-
-    ###roc###
-    fpr = {}
-    tpr = {}
-    roc_auc = {}
-
-    for i in range(num_classes):
-        fpr[i], tpr[i], _ = roc_curve(out_test_labels[:, i], scores[:, i])
-        roc_auc[i] = auc(fpr[i], tpr[i])
-
-    # Compute micro-average ROC curve and ROC area
-    fpr["micro"], tpr["micro"], _ = roc_curve(out_test_labels.cpu().numpy().ravel(), scores.ravel())
-    roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
-
-    # Compute macro-average ROC curve and ROC area
-    # First aggregate all false positive rates
-    all_fpr = np.unique(np.concatenate([fpr[i] for i in range(num_classes)]))
-    # Then interpolate all ROC curves at this points
-    mean_tpr = np.zeros_like(all_fpr)
-    for i in range(num_classes):
-        mean_tpr += np.interp(all_fpr, fpr[i], tpr[i])
-    # Finally average it and compute AUC
-    mean_tpr /= num_classes
-    fpr["macro"] = all_fpr
-    tpr["macro"] = mean_tpr
-    roc_auc["macro"] = auc(fpr["macro"], tpr["macro"])
-
-    ###pr###
-    precision_dict = {}
-    recall_dict = {}
-    average_precision = {}
-    for i in range(num_classes):
-        precision_dict[i], recall_dict[i], _ = precision_recall_curve(out_test_labels[:, i], scores[:, i])
-        average_precision[i] = average_precision_score(out_test_labels[:, i], scores[:, i])
-        print(precision_dict[i].shape, recall_dict[i].shape, average_precision[i])
-
-    # micro
-    precision_dict["micro"], recall_dict["micro"], _ = precision_recall_curve(out_test_labels.cpu().numpy().ravel(), scores.ravel())
-    average_precision["micro"] = average_precision_score(out_test_labels.cpu().numpy(), scores, average="micro")
-    print('Average precision score, micro-averaged over all classes: {0:0.2f}'.format(average_precision["micro"]))
-
-    ###classfication_report###
-    c_r = classification_report(y_ture, y_pred,labels=[0,1])
-    print(c_r)
-
-    ###F1-score###
-    print("F1-Score:{:.4f}".format(f1_score(y_ture,y_pred)))
-
-# ###yinoyang
-# fpr_yinoyang, tpr_yinoyang, thresholds = roc_curve(y_ture_np, y_pred_p_np, pos_label=1)
-# auc_yinoyang = auc(fpr_yinoyang, tpr_yinoyang)
-#
-#
-# precision_yinoyang, recall_yinoyang, thresholds = precision_recall_curve(y_ture_np, y_pred_p_np)
-# ap_yinoyang = average_precision_score(y_ture_np, y_pred_p_np, average='micro', pos_label=1, sample_weight=None)
-
-
-plt.style.use('ggplot')
-    # 绘制所有类别平均的pr曲线
-plt.figure(figsize=(8, 8))
-plt.plot(recall_dict['micro'], precision_dict['micro'],label = 'deepogt AP={0:0.2f}'.format(average_precision["micro"]))
-# plt.plot(recall_yinoyang, precision_yinoyang, label = 'YinOYang AP={0:0.2f}'.format(ap_yinoyang))
-plt.xlabel('Recall')
-plt.ylabel('Precision')
-plt.ylim([0.0, 1.05])
-plt.xlim([0.0, 1.0])
-plt.grid(True)
-# plt.title('Average precision score, micro-averaged over all classes: AP={0:0.2f}'.format(average_precision["micro"]))
-plt.legend(loc="lower right")
-plt.savefig("227pr_curve.jpg")
-
-
-
-
-#roc
-plt.figure(figsize=(8, 8))
-plt.plot(fpr["micro"], tpr["micro"],
-         label='micro-average ROC curve (area = {0:0.2f})'.format(roc_auc["micro"]),
-         color='deeppink', linestyle=':', linewidth=4)
-
-plt.plot(fpr["macro"], tpr["macro"],
-         label='macro-average ROC curve (area = {0:0.2f})'.format(roc_auc["macro"]),
-         color='navy', linestyle=':', linewidth=4)
-
-for i in range(num_classes):
-    plt.plot(fpr[i], tpr[i], lw=2,
-             label='ROC curve of class {0} (area = {1:0.2f})'.format(i, roc_auc[i]))
-
-# plt.plot(fpr_yinoyang, tpr_yinoyang, lw=2, label='ROC curve of YinOYang (area = {0:0.2f})'.format(auc_yinoyang))
-
-plt.plot([0, 1], [0, 1], 'k--')
-plt.xlim([0.0, 1.0])
-plt.ylim([0.0, 1.05])
-plt.grid(True)
-
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title('Two-class ROC')
-plt.legend(loc="lower right")
-plt.savefig('227Two-class-ROC.jpg', bbox_inches='tight')
-plt.show()
